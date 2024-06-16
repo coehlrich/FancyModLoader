@@ -10,6 +10,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Stream;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.targets.CommonLaunchHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,7 +25,15 @@ public interface ILaunchContext {
     /**
      * The Modlauncher environment.
      */
+    @Deprecated(forRemoval = true)
     IEnvironment environment();
+
+    Dist getRequiredDistribution();
+
+    /**
+     * The game directory.
+     */
+    Path gameDirectory();
 
     <T> Stream<ServiceLoader.Provider<T>> loadServices(Class<T> serviceClass);
 

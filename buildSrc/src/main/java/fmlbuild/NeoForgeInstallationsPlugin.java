@@ -116,6 +116,7 @@ public abstract class NeoForgeInstallationsPlugin implements Plugin<Project> {
             task.setGroup("fml/installations");
             task.getInstaller().from(installerConfig);
             task.getInstallDir().set(installation.getDirectory());
+            task.getLibrariesDir().set(task.getInstallDir().dir("libraries"));
             task.getNeoForgeVersion().set(installation.getVersion());
 
             // Write the JVM args to files

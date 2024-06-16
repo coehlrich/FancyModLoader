@@ -3,6 +3,8 @@ package fmlbuild;
 import org.gradle.api.Named;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 
 public abstract class NeoForgeInstallation implements Named {

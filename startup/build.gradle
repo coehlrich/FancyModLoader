@@ -1,0 +1,150 @@
+plugins {
+    id "java-library"
+}
+
+apply plugin: fmlbuild.NeoForgeInstallationsPlugin
+apply plugin: fmlbuild.RunConfigurationsPlugin
+
+neoForgeInstallations {
+    register("client", fmlbuild.NeoForgeClientInstallation) {
+        version = "21.0.57-beta"
+        minecraftVersion = "1.21"
+    }
+    register("server", fmlbuild.NeoForgeServerInstallation) {
+        version = "21.0.57-beta"
+        minecraftVersion = "1.21"
+    }
+}
+
+runConfigurations {
+    configureEach {
+        taskGroup = "fml/test runs"
+        jvmArgs.add("-javaagent:" + file("devagent.jar").absolutePath)
+        dependencies {
+            runtime project(":startup")
+            runtime "net.neoforged:minecraft-dependencies:1.21"
+        }
+    }
+    productionClient {
+        ideName = "Client (Production)"
+        mainClass = "net.neoforged.fmlstartup.Startup"
+        workingDirectory = neoForgeInstallations.client.directory
+        jvmArgs.add(neoForgeInstallations.client.vanillaJvmArgFile.map { "@" + it })
+        jvmArgs.add(neoForgeInstallations.client.neoForgeJvmArgFile.map { "@" + it })
+        programArgs.add(neoForgeInstallations.client.vanillaProgramArgFile.map { "@" + it })
+        programArgs.add(neoForgeInstallations.client.neoForgeProgramArgFile.map { "@" + it })
+        dependencies {
+            runtime files(tasks.named("installNeoForgeClient").map { it.obfuscatedClientJar })
+        }
+    }
+    productionServer {
+        ideName = "Server (Production)"
+        mainClass = "net.neoforged.fmlstartup.Startup"
+        workingDirectory = neoForgeInstallations.server.directory
+        jvmArgs.add(neoForgeInstallations.server.neoForgeJvmArgFile.map { "@" + it })
+        programArgs.add(neoForgeInstallations.server.neoForgeProgramArgFile.map { "@" + it })
+    }
+    moddevClient {
+        ideName = "Client (ModDev)"
+        mainClass = "net.neoforged.fmlstartup.Startup"
+        dependencies {
+            runtime project.dependencies.project(path: ":minecraft", configuration: "minecraftJars")
+        }
+        // TODO: We only really want the assets
+        programArgs.add(neoForgeInstallations.client.directory.map { "@" + it.file("vanilla_args.txt").asFile.absolutePath })
+    }
+    moddevServer {
+        ideName = "Server (ModDev)"
+        mainClass = "net.neoforged.fmlstartup.Startup"
+        dependencies {
+            runtime project.dependencies.project(path: ":minecraft", configuration: "minecraftJars")
+        }
+    }
+}
+
+// The production server configuration has to be given the attribute to get server dependencies
+
+
+java {
+    withSourcesJar()
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+                "Launcher-Agent-Class": "net.neoforged.fmlstartup.DevAgent",
+                "Premain-Class"       : "net.neoforged.fmlstartup.DevAgent",
+                "Main-Class"          : "net.neoforged.fmlstartup.Startup"
+        ])
+    }
+}
+
+configurations {
+    // Used to simulate a Minecraft client production environment
+    minecraftRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+abstract class DistributionDisambiguation implements AttributeDisambiguationRule<String> {
+    @Override
+    void execute(MultipleCandidatesDetails<String> details) {
+        details.closestMatch("client");
+    }
+}
+
+abstract class OperatingSystemDisambiguation implements AttributeDisambiguationRule<String> {
+    @Override
+    void execute(MultipleCandidatesDetails<String> details) {
+        var osName = System.getProperty("os.name");
+        // The following matches the logic in Apache Commons Lang 3 SystemUtils
+        if (osName.startsWith("Linux") || osName.startsWith("LINUX")) {
+            osName = "linux";
+        } else if (osName.startsWith("Mac OS X")) {
+            osName = "macosx";
+        } else if (osName.startsWith("Windows")) {
+            osName = "windows";
+        } else {
+            throw new GradleException("Unsupported operating system: " + osName);
+        }
+
+        details.closestMatch(osName);
+    }
+}
+
+var ATTRIBUTE_DISTRIBUTION = Attribute.of("net.neoforged.distribution", String.class);
+var ATTRIBUTE_OPERATING_SYSTEM = Attribute.of("net.neoforged.operatingsystem", String.class);
+
+dependencies {
+    attributesSchema(attributesSchema -> {
+        attributesSchema.attribute(ATTRIBUTE_DISTRIBUTION).getDisambiguationRules().add(DistributionDisambiguation.class);
+        attributesSchema.attribute(ATTRIBUTE_OPERATING_SYSTEM).getDisambiguationRules().add(OperatingSystemDisambiguation.class);
+    })
+
+    compileOnly("org.jetbrains:annotations:${jetbrains_annotations_version}")
+    compileOnly(platform("org.lwjgl:lwjgl-bom:3.3.3"))
+    compileOnly("org.lwjgl:lwjgl-tinyfd")
+    runtimeOnly(project(":loader"))
+    runtimeOnly(project(":earlydisplay"))
+
+    testImplementation(platform("org.junit:junit-bom:$jupiter_version"))
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
+    testImplementation(platform("org.assertj:assertj-bom:$assertj_version"))
+    testImplementation("org.assertj:assertj-core")
+}
+
+test {
+    useJUnitPlatform()
+
+    jvmArgumentProviders.add(new CommandLineArgumentProvider() {
+        @Override
+        Iterable<String> asArguments() {
+            return List.of("-javaagent:" + jar.archiveFile.get().asFile.absolutePath);
+        }
+    })
+}

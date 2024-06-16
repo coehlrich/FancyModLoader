@@ -17,6 +17,9 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.fml.loading.targets.CommonLaunchHandler;
 import net.neoforged.neoforgespi.ILaunchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,23 +27,29 @@ import org.slf4j.LoggerFactory;
 final class LaunchContext implements ILaunchContext {
     private static final Logger LOG = LoggerFactory.getLogger(LaunchContext.class);
     private final IEnvironment environment;
+    private final Path gameDirectory;
     private final IModuleLayerManager moduleLayerManager;
     private final List<String> modLists;
     private final List<String> mods;
     private final List<String> mavenRoots;
     private final Set<Path> locatedPaths = new HashSet<>();
+    private final Dist requiredDistribution;
 
     LaunchContext(
             IEnvironment environment,
+            Dist requiredDistribution,
+            Path gameDirectory,
             IModuleLayerManager moduleLayerManager,
             List<String> modLists,
             List<String> mods,
             List<String> mavenRoots) {
         this.environment = environment;
+        this.gameDirectory = gameDirectory;
         this.moduleLayerManager = moduleLayerManager;
         this.modLists = modLists;
         this.mods = mods;
         this.mavenRoots = mavenRoots;
+        this.requiredDistribution = requiredDistribution;
 
         // Index current layers of the module layer manager
         for (var layerId : IModuleLayerManager.Layer.values()) {
@@ -55,6 +64,16 @@ final class LaunchContext implements ILaunchContext {
             });
         }
         LOG.debug(LogMarkers.SCAN, "Located paths when launch context was created: {}", locatedPaths);
+    }
+
+    @Override
+    public Dist getRequiredDistribution() {
+        return requiredDistribution;
+    }
+
+    @Override
+    public Path gameDirectory() {
+        return gameDirectory;
     }
 
     private Path unpackPath(Path path) {

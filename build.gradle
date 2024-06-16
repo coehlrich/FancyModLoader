@@ -60,6 +60,8 @@ allprojects {
 subprojects { subProject ->
     subProject.version = rootProject.version
 
+    apply plugin : fmlbuild.InDevModulePlugin
+
     jar {
         manifest.attributes(
                 'Git-Commit'  : gradleutils.gitInfo.abbreviatedId,

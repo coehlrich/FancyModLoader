@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Stream;
+
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforgespi.ILaunchContext;
 
 class TestLaunchContext implements ILaunchContext {
@@ -24,8 +26,18 @@ class TestLaunchContext implements ILaunchContext {
     }
 
     @Override
+    public Dist getRequiredDistribution() {
+        return launchContext.getRequiredDistribution();
+    }
+
+    @Override
     public IEnvironment environment() {
         return launchContext.environment();
+    }
+
+    @Override
+    public Path gameDirectory() {
+        return this.launchContext.gameDirectory();
     }
 
     @Override

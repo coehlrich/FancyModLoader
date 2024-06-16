@@ -7,6 +7,7 @@ package net.neoforged.fml.loading.moddiscovery;
 
 import com.mojang.logging.LogUtils;
 import cpw.mods.jarhandling.JarContents;
+import cpw.mods.jarhandling.SecureJar;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import net.neoforged.fml.i18n.FMLTranslations;
 import net.neoforged.fml.loading.ImmediateWindowHandler;
 import net.neoforged.fml.loading.LogMarkers;
 import net.neoforged.fml.loading.UniqueModListBuilder;
+import net.neoforged.fml.loading.moddiscovery.readers.JarModsDotTomlModFileReader;
 import net.neoforged.fml.util.ServiceLoaderUtil;
 import net.neoforged.neoforgespi.ILaunchContext;
 import net.neoforged.neoforgespi.locating.IDependencyLocator;
@@ -73,7 +75,7 @@ public class ModDiscoverer {
             } catch (ModLoadingException e) {
                 discoveryIssues.addAll(e.getIssues());
             } catch (Exception e) {
-                discoveryIssues.add(ModLoadingIssue.error("fml.modloadingissue.technical_error", locator.toString() + "failed").withCause(e));
+                discoveryIssues.add(ModLoadingIssue.error("fml.modloadingissue.technical_error", locator.toString() + " failed").withCause(e));
             }
 
             LOGGER.debug(LogMarkers.SCAN, "Locator {} found {} mods, {} warnings, {} errors and skipped {} candidates", locator,
@@ -155,11 +157,27 @@ public class ModDiscoverer {
         }
 
         @Override
+        public void addLibrary(Path path) {
+            if (!launchContext.addLocated(path)) {
+                LOGGER.debug(LogMarkers.SCAN, "Skipping {} because it was already located earlier", path);
+                skipCount++;
+                return;
+            }
+
+            var modFile = new ModFile(
+                    SecureJar.from(path),
+                    JarModsDotTomlModFileReader::manifestParser,
+                    IModFile.Type.LIBRARY,
+                    defaultAttributes);
+            addModFile(modFile);
+        }
+
+        @Override
         public Optional<IModFile> addPath(List<Path> groupedPaths, ModFileDiscoveryAttributes attributes, IncompatibleFileReporting reporting) {
             var primaryPath = groupedPaths.getFirst();
 
             if (!launchContext.addLocated(primaryPath)) {
-                LOGGER.debug("Skipping {} because it was already located earlier", primaryPath);
+                LOGGER.debug(LogMarkers.SCAN, "Skipping {} because it was already located earlier", primaryPath);
                 skipCount++;
                 return Optional.empty();
             }
