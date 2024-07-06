@@ -1,6 +1,25 @@
 
+plugins {
+    id 'net.neoforged.moddev'
+}
+
 apply plugin: fmlbuild.NeoForgeInstallationsPlugin
 apply plugin: fmlbuild.RunConfigurationsPlugin
+
+neoForge {
+    version = test_neoforge_version
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+    }
+}
+
+runClient.group = "fml/test runs"
+runServer.group = "fml/test runs"
 
 neoForgeInstallations {
     register("client", fmlbuild.NeoForgeClientInstallation) {
@@ -48,20 +67,6 @@ runConfigurations {
         jvmArgs.add(neoForgeInstallations.server.neoForgeJvmArgFile.map { "@" + it })
         programArgs.add(neoForgeInstallations.server.neoForgeMainClassArgFile.map { "@" + it })
         programArgs.add(neoForgeInstallations.server.neoForgeProgramArgFile.map { "@" + it })
-    }
-    moddevClient {
-        ideName = "Client (ModDev)"
-        dependencies {
-            classpath project.dependencies.project(path: ":minecraft", configuration: "minecraftJars")
-        }
-        // TODO: We only really want the assets
-        programArgs.add(neoForgeInstallations.client.directory.map { "@" + it.file("vanilla_args.txt").asFile.absolutePath })
-    }
-    moddevServer {
-        ideName = "Server (ModDev)"
-        dependencies {
-            classpath project.dependencies.project(path: ":minecraft", configuration: "minecraftJars")
-        }
     }
 }
 
