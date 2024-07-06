@@ -17,16 +17,33 @@ public abstract class NeoForgeClientInstallation extends NeoForgeInstallation {
         getNeoForgeProgramArgFile().convention(getDirectory().file("neoforge_args.txt"));
     }
 
-    // Write the JVM args to files
+    /**
+     * An argfile with the program arguments defined by the Vanilla launcher profile will be written here.
+     */
     public abstract RegularFileProperty getVanillaJvmArgFile();
 
+    /**
+     * An argfile with the main class defined in the Vanilla launcher profile will be written here.
+     */
     public abstract RegularFileProperty getVanillaMainClassArgFile();
 
+    /**
+     * An argfile with the program arguments defined by the Vanilla launcher profile will be written here.
+     */
     public abstract RegularFileProperty getVanillaProgramArgFile();
 
+    /**
+     * An argfile with the JVM args defined in the NeoForge launcher profile will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeJvmArgFile();
 
+    /**
+     * An argfile with the main class defined in the NeoForge launcher profile will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeMainClassArgFile();
 
+    /**
+     * An argfile with the program args defined in the NeoForge launcher profile will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeProgramArgFile();
 }

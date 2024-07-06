@@ -15,9 +15,9 @@ final class RunUtils {
         tok.resetSyntax();
         tok.wordChars(32, 255);
         tok.whitespaceChars(0, 32);
-        tok.quoteChar(34);
-        tok.quoteChar(39);
-        tok.commentChar(35);
+        tok.quoteChar('"');
+        tok.quoteChar('\'');
+        tok.commentChar('#');
 
         var args = new ArrayList<String>();
         while (tok.nextToken() != -1) {

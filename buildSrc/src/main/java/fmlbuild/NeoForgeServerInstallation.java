@@ -16,9 +16,18 @@ public abstract class NeoForgeServerInstallation extends NeoForgeInstallation {
         getNeoForgeProgramArgFile().set(getDirectory().file("neoforge_args.txt"));
     }
 
+    /**
+     * An JVM argfile with the necessary JVM args to launch will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeJvmArgFile();
 
+    /**
+     * An JVM argfile with the main class needed to launch will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeMainClassArgFile();
 
+    /**
+     * An argfile with the necessary program arguments will be written here.
+     */
     public abstract RegularFileProperty getNeoForgeProgramArgFile();
 }

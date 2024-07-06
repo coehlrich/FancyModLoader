@@ -3,8 +3,6 @@ package fmlbuild;
 import org.gradle.api.Named;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 
 public abstract class NeoForgeInstallation implements Named {
@@ -20,9 +18,18 @@ public abstract class NeoForgeInstallation implements Named {
         return name;
     }
 
+    /**
+     * The NeoForge version to install.
+     */
     public abstract Property<String> getVersion();
 
+    /**
+     * The Minecraft version matching the NeoForge version.
+     */
     public abstract Property<String> getMinecraftVersion();
 
+    /**
+     * Where the installation should be made.
+     */
     public abstract DirectoryProperty getDirectory();
 }

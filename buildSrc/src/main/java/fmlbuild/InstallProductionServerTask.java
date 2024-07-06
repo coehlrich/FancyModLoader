@@ -31,24 +31,42 @@ import java.util.zip.ZipFile;
 public abstract class InstallProductionServerTask extends DefaultTask {
     private final ExecOperations execOperations;
 
+    /**
+     * The NeoForge installer jar is expected to be the only file in this file collection.
+     */
     @InputFiles
     public abstract ConfigurableFileCollection getInstaller();
 
+    /**
+     * The NeoForge version that is being installed. This is required to then look up the server argument
+     * file after the installer has done its thing.
+     */
     @Input
     public abstract Property<String> getNeoForgeVersion();
 
+    /**
+     * Where the server should be installed.
+     */
     @OutputDirectory
     public abstract DirectoryProperty getInstallDir();
 
-    @OutputDirectory
-    public abstract DirectoryProperty getLibrariesDir();
-
-    @OutputFile
-    public abstract RegularFileProperty getNeoForgeProgramArgFile();
-
+    /**
+     * Write an argument-file for the JVM containing the required JVM args for startup.
+     * Any module or classpath arguments have been stripped.
+     */
     @OutputFile
     public abstract RegularFileProperty getNeoForgeJvmArgFile();
 
+    /**
+     * Write an argument-file for DevLauncher here that contains the program arguments to launch the server.
+     */
+    @OutputFile
+    public abstract RegularFileProperty getNeoForgeProgramArgFile();
+
+    /**
+     * Write an argument-file for DevLauncher here that contains the original main class name used
+     * to launch the server.
+     */
     @OutputFile
     public abstract RegularFileProperty getNeoForgeMainClassArgFile();
 
