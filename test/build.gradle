@@ -1,4 +1,3 @@
-
 plugins {
     id 'net.neoforged.moddev'
 }
@@ -103,6 +102,14 @@ abstract class OperatingSystemDisambiguation implements AttributeDisambiguationR
 
 var ATTRIBUTE_DISTRIBUTION = Attribute.of("net.neoforged.distribution", String.class);
 var ATTRIBUTE_OPERATING_SYSTEM = Attribute.of("net.neoforged.operatingsystem", String.class);
+
+// Since the neoforge-dependencies use strict resolution, we're kinda lost and have to force.
+configurations.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute module("net.neoforged.fancymodloader:loader") using project(":loader")
+        substitute module("net.neoforged.fancymodloader:earlydisplay") using project(":earlydisplay")
+    }
+}
 
 dependencies {
     attributesSchema(attributesSchema -> {
