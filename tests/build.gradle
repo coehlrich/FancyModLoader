@@ -40,19 +40,18 @@ neoForgeInstallations {
 runConfigurations {
     configureEach {
         taskGroup = "fml/test runs"
-        mainClass = "net.neoforged.devlaunch.Main"
+        mainClass = "net.neoforged.fmlstartup.Startup"
         dependencies {
             classpath project(":startup")
             classpath "net.neoforged:minecraft-dependencies:$test_minecraft_version"
         }
-        jvmArgs.add("-javaagent:" + file("devagent.jar").absolutePath)
+        jvmArgs.add("-javaagent:" + file("../startup/devagent.jar").absolutePath)
     }
     productionClient {
         ideName = "Client (Production)"
         workingDirectory = neoForgeInstallations.client.directory
         jvmArguments.add(neoForgeInstallations.client.vanillaJvmArgFile.map { "@" + it })
         jvmArguments.add(neoForgeInstallations.client.neoForgeJvmArgFile.map { "@" + it })
-        programArguments.add(neoForgeInstallations.client.neoForgeMainClassArgFile.map { "@" + it })
         programArguments.add(neoForgeInstallations.client.vanillaProgramArgFile.map { "@" + it })
         programArguments.add(neoForgeInstallations.client.neoForgeProgramArgFile.map { "@" + it })
         dependencies {
@@ -63,7 +62,6 @@ runConfigurations {
         ideName = "Server (Production)"
         workingDirectory = neoForgeInstallations.server.directory
         jvmArguments.add(neoForgeInstallations.server.neoForgeJvmArgFile.map { "@" + it })
-        programArguments.add(neoForgeInstallations.server.neoForgeMainClassArgFile.map { "@" + it })
         programArguments.add(neoForgeInstallations.server.neoForgeProgramArgFile.map { "@" + it })
     }
 }
