@@ -81,6 +81,7 @@ public abstract class InstallProductionServerTask extends DefaultTask {
         Files.createDirectories(installDir);
 
         execOperations.javaexec(spec -> {
+            spec.workingDir(installDir);
             spec.classpath(getInstaller().getSingleFile());
             spec.args("--install-server", installDir.toString());
             try {

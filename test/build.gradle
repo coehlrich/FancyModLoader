@@ -10,12 +10,15 @@ neoForge {
     runs {
         client {
             client()
+            gameDirectory = file("build/runs/client")
         }
         server {
             server()
+            gameDirectory = file("build/runs/server")
         }
         data {
             data()
+            gameDirectory = file("build/runs/data")
         }
     }
 }

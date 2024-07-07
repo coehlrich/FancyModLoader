@@ -98,6 +98,7 @@ public abstract class InstallProductionClientTask extends DefaultTask {
         Files.writeString(profilesJsonPath, "{}");
 
         execOperations.javaexec(spec -> {
+            spec.workingDir(installDir);
             spec.classpath(getInstaller().getSingleFile());
             spec.args("--install-client", installDir.toString());
             try {
