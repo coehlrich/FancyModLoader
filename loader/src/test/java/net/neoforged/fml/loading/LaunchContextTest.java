@@ -22,7 +22,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.test.RuntimeCompiler;
 import org.junit.jupiter.api.AfterEach;
@@ -90,7 +89,7 @@ class LaunchContextTest {
                 };
             }
         };
-        context = new LaunchContext(environment, Dist.CLIENT, tempDir, moduleLayerManager, List.of(), List.of(), List.of());
+        context = new LaunchContext(environment, Dist.CLIENT, tempDir, moduleLayerManager, List.of(), List.of(), List.of(), List.of());
 
         // Create the plugin-layer after the ctor has already been called
         pluginLayer = createModuleLayer(otherJarPath, "test.other.jar");

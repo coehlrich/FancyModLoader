@@ -8,10 +8,9 @@ package net.neoforged.fmlstartup.api;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Objects;
 
-public record FileCacheKey(String filename, long size, long lastModified) implements Serializable {
+public record FileCacheKey(String filename, long size, long lastModified) {
     public FileCacheKey {
         filename = Objects.requireNonNull(filename, "filename");
     }
@@ -24,16 +23,5 @@ public record FileCacheKey(String filename, long size, long lastModified) implem
         out.writeUTF(filename);
         out.writeLong(size);
         out.writeLong(lastModified);
-    }
-
-    public Object[] parcel() {
-        return new Object[] { filename, size, lastModified };
-    }
-
-    public static FileCacheKey unparcel(Object[] parcel) {
-        return new FileCacheKey(
-                (String) parcel[0],
-                (long) parcel[1],
-                (long) parcel[2]);
     }
 }

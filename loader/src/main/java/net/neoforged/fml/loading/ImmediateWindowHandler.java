@@ -28,6 +28,7 @@ import org.apache.logging.log4j.Logger;
 
 public class ImmediateWindowHandler {
     private static final Logger LOGGER = LogManager.getLogger();
+    private static final String HANDOFF_CLASS = "net.neoforged.neoforge.client.loading.NoVizFallback";
 
     private static ImmediateWindowProvider provider;
 
@@ -161,16 +162,22 @@ public class ImmediateWindowHandler {
         }
 
         @Override
-        public void updateModuleReads(final ModuleLayer layer) {
-            var fm = layer.findModule("neoforge");
-            if (fm.isPresent()) {
-                getClass().getModule().addReads(fm.get());
-                var clz = fm.map(l -> Class.forName(l, "net.neoforged.neoforge.client.loading.NoVizFallback")).orElseThrow();
-                var methods = Arrays.stream(clz.getMethods()).filter(m -> Modifier.isStatic(m.getModifiers())).collect(Collectors.toMap(Method::getName, Function.identity()));
-                NV_HANDOFF = methods.get("windowHandoff");
-                NV_OVERLAY = methods.get("loadingOverlay");
-                NV_POSITION = methods.get("windowPositioning");
-                NV_VERSION = methods.get("glVersion");
+        public void updateModuleReads(ModuleLayer layer) {
+            var nfModule = layer.findModule("neoforge").orElse(null);
+            if (nfModule != null) {
+                getClass().getModule().addReads(nfModule);
+                var clz = Class.forName(nfModule, HANDOFF_CLASS);
+                if (clz != null) {
+                    var methods = Arrays.stream(clz.getMethods()).filter(m -> Modifier.isStatic(m.getModifiers())).collect(Collectors.toMap(Method::getName, Function.identity()));
+                    NV_HANDOFF = methods.get("windowHandoff");
+                    NV_OVERLAY = methods.get("loadingOverlay");
+                    NV_POSITION = methods.get("windowPositioning");
+                    NV_VERSION = methods.get("glVersion");
+                } else {
+                    LOGGER.error("Cannot hand over Minecraft window to NeoForge, since class {} wasn't found in {}.", HANDOFF_CLASS, nfModule);
+                }
+            } else {
+                LOGGER.error("Cannot hand over Minecraft window to NeoForge, since module 'neoforge' wasn't found in {}.", layer);
             }
         }
 

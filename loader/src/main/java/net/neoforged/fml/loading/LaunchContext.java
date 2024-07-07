@@ -8,6 +8,8 @@ package net.neoforged.fml.loading;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.IModuleLayerManager;
 import cpw.mods.niofs.union.UnionFileSystem;
+
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.EnumSet;
@@ -17,9 +19,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
-
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.targets.CommonLaunchHandler;
+import net.neoforged.fml.util.ServiceLoaderUtil;
 import net.neoforged.neoforgespi.ILaunchContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ final class LaunchContext implements ILaunchContext {
     private final List<String> mavenRoots;
     private final Set<Path> locatedPaths = new HashSet<>();
     private final Dist requiredDistribution;
+    private List<File> unclaimedClassPathEntries;
 
     LaunchContext(
             IEnvironment environment,
@@ -42,7 +44,8 @@ final class LaunchContext implements ILaunchContext {
             IModuleLayerManager moduleLayerManager,
             List<String> modLists,
             List<String> mods,
-            List<String> mavenRoots) {
+            List<String> mavenRoots,
+            List<File> unclaimedClassPathEntries) {
         this.environment = environment;
         this.gameDirectory = gameDirectory;
         this.moduleLayerManager = moduleLayerManager;
@@ -50,6 +53,7 @@ final class LaunchContext implements ILaunchContext {
         this.mods = mods;
         this.mavenRoots = mavenRoots;
         this.requiredDistribution = requiredDistribution;
+        this.unclaimedClassPathEntries = unclaimedClassPathEntries;
 
         // Index current layers of the module layer manager
         for (var layerId : IModuleLayerManager.Layer.values()) {
@@ -103,6 +107,10 @@ final class LaunchContext implements ILaunchContext {
             }
         }
 
+        // Also always include ambient services from our own loader.
+        // Especially useful for tests.
+        result = Stream.concat(result, ServiceLoader.load(serviceClass).stream());
+
         return result.distinct();
     }
 
@@ -120,6 +128,13 @@ final class LaunchContext implements ILaunchContext {
 
     public boolean addLocated(Path path) {
         return locatedPaths.add(unpackPath(path));
+    }
+
+    @Override
+    public List<File> getUnclaimedClassPathEntries() {
+        return unclaimedClassPathEntries.stream()
+                .filter(p -> !isLocated(p.toPath()))
+                .toList();
     }
 
     @Override

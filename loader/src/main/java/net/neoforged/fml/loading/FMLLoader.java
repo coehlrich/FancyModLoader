@@ -16,6 +16,7 @@ import cpw.mods.modlauncher.Launcher;
 import cpw.mods.modlauncher.ModuleLayerHandler;
 import cpw.mods.modlauncher.TransformStore;
 import cpw.mods.modlauncher.TransformationServicesHandler;
+import cpw.mods.modlauncher.TransformingClassLoader;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ILaunchHandlerService;
 import cpw.mods.modlauncher.api.IModuleLayerManager;
@@ -38,12 +39,17 @@ import net.neoforged.fml.loading.moddiscovery.ModFile;
 import net.neoforged.fml.loading.moddiscovery.ModValidator;
 import net.neoforged.fml.loading.moddiscovery.locators.ClasspathLibrariesLocator;
 import net.neoforged.fml.loading.moddiscovery.locators.GameLocator;
+import net.neoforged.fml.loading.moddiscovery.locators.InDevLocator;
+import net.neoforged.fml.loading.moddiscovery.locators.MavenDirectoryLocator;
+import net.neoforged.fml.loading.moddiscovery.locators.ModsFolderLocator;
 import net.neoforged.fml.loading.modscan.BackgroundScanHandler;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 import net.neoforged.fml.loading.targets.CommonLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeClientDevLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeClientLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeClientUserdevLaunchHandler;
+import net.neoforged.fml.loading.targets.NeoForgeDataDevLaunchHandler;
+import net.neoforged.fml.loading.targets.NeoForgeDataUserdevLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeServerDevLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeServerLaunchHandler;
 import net.neoforged.fml.loading.targets.NeoForgeServerUserdevLaunchHandler;
@@ -55,6 +61,7 @@ import net.neoforged.neoforgespi.coremod.ICoreMod;
 import net.neoforged.neoforgespi.locating.IModFile;
 import net.neoforged.neoforgespi.locating.IModFileCandidateLocator;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
 
@@ -101,6 +108,10 @@ public class FMLLoader {
     private static boolean production;
     @Nullable
     private static ModuleLayer gameLayer;
+    @VisibleForTesting
+    static DiscoveryResult discoveryResult;
+    @VisibleForTesting
+    static TransformingClassLoader gameClassLoader;
 
     // This is called by FML Startup
     @SuppressWarnings("unused")
@@ -137,16 +148,20 @@ public class FMLLoader {
         LOGGER.debug(CORE, "Searching for launch handler '{}'", startupArgs.launchTarget());
         commonLaunchHandler = getLaunchHandler(startupArgs.launchTarget());
 
+        // TODO: These should be determine via ambient information too
+        dist = commonLaunchHandler.getDist();
+        production = commonLaunchHandler.isProduction();
+
         var launchContext = new LaunchContext(
                 environment,
-                commonLaunchHandler.getDist(),
+                dist,
                 startupArgs.gameDirectory().toPath(),
                 moduleLayerHandler,
                 List.of(), // TODO: Argparse
                 List.of(), // TODO: Argparse
-                List.of() // TODO: Argparse
+                List.of(), // TODO: Argparse
+                startupArgs.unclaimedClassPathEntries()
         );
-
         for (var claimedFile : startupArgs.claimedFiles()) {
             launchContext.addLocated(claimedFile.toPath());
         }
@@ -158,10 +173,6 @@ public class FMLLoader {
                 externalOptions.mcVersion(),
                 externalOptions.neoFormVersion());
 
-        // TODO: These should be determine via ambient information too
-        dist = commonLaunchHandler.getDist();
-        production = commonLaunchHandler.isProduction();
-
         // Only register the one we already know is selected
         launchHandlers.put(commonLaunchHandler.name(), commonLaunchHandler);
         FMLEnvironment.setupInteropEnvironment(environment);
@@ -171,9 +182,9 @@ public class FMLLoader {
         // as mod discovery will add its results to these engines directly.
         accessTransformer = addLaunchPlugin(launchPlugins, new AccessTransformerService()).engine;
         addLaunchPlugin(launchPlugins, new RuntimeEnumExtender());
-        runtimeDistCleaner = addLaunchPlugin(launchPlugins, new RuntimeDistCleaner(commonLaunchHandler.getDist()));
+        runtimeDistCleaner = addLaunchPlugin(launchPlugins, new RuntimeDistCleaner(dist));
 
-        var discoveryResult = runOffThread(() -> runDiscovery(launchContext));
+        discoveryResult = runOffThread(() -> runDiscovery(launchContext));
 
         for (var issue : discoveryResult.discoveryIssues) {
             LOGGER.atLevel(issue.severity() == ModLoadingIssue.Severity.ERROR ? Level.ERROR : Level.WARN)
@@ -225,7 +236,7 @@ public class FMLLoader {
                 .flatMap(resource -> resource.resources().stream())
                 .forEach(np -> moduleLayerHandler.addToLayer(IModuleLayerManager.Layer.PLUGIN, np));
         for (ModFile modFile : discoveryResult.pluginContent) {
-            moduleLayerHandler.addToLayer(IModuleLayerManager.Layer.GAME, modFile.getSecureJar());
+            moduleLayerHandler.addToLayer(IModuleLayerManager.Layer.PLUGIN, modFile.getSecureJar());
         }
         moduleLayerHandler.buildLayer(IModuleLayerManager.Layer.PLUGIN);
 
@@ -248,17 +259,22 @@ public class FMLLoader {
 
         launchPluginHandler.offerScanResultsToPlugins(gameContents);
         // We do not do this: launchService.validateLaunchTarget(argumentHandler);
-        var classLoader = transformationServicesHandler.buildTransformingClassLoader(launchPluginHandler, environment, moduleLayerHandler);
-
-        // From here on out, try loading through the TCL
-        Thread.currentThread().setContextClassLoader(classLoader);
+        gameClassLoader = transformationServicesHandler.buildTransformingClassLoader(launchPluginHandler, environment, moduleLayerHandler);
+        if (startupArgs.parentClassLoader() != null) {
+            gameClassLoader.setFallbackClassLoader(startupArgs.parentClassLoader());
+        }
 
         var gameLayer = moduleLayerHandler.getLayer(IModuleLayerManager.Layer.GAME).orElseThrow();
 
         processAddOpensDeclarations(instrumentation, gameLayer);
 
         var gameRunner = commonLaunchHandler.launchService(programArgs, gameLayer);
+        if (startupArgs.skipEntryPoint()) {
+            return;
+        }
 
+        // From here on out, try loading through the TCL
+        Thread.currentThread().setContextClassLoader(gameClassLoader);
         try {
             gameRunner.run();
         } catch (Throwable e) {
@@ -271,6 +287,8 @@ public class FMLLoader {
             case "forgeclient" -> new NeoForgeClientLaunchHandler();
             case "forgeclientuserdev" -> new NeoForgeClientUserdevLaunchHandler();
             case "forgeclientdev" -> new NeoForgeClientDevLaunchHandler();
+            case "forgedatauserdev" -> new NeoForgeDataUserdevLaunchHandler();
+            case "forgedatadev" -> new NeoForgeDataDevLaunchHandler();
             case "forgeserver" -> new NeoForgeServerLaunchHandler();
             case "forgeserveruserdev" -> new NeoForgeServerUserdevLaunchHandler();
             case "forgeserverdev" -> new NeoForgeServerDevLaunchHandler();
@@ -389,6 +407,7 @@ public class FMLLoader {
         return new FMLExternalOptions(neoForgeVersion, fmlVersion, mcVersion, neoFormVersion);
     }
 
+    @VisibleForTesting
     record DiscoveryResult(List<ModFile> pluginContent, List<ModFile> gameContent,
                            List<ModLoadingIssue> discoveryIssues) {
     }
@@ -401,6 +420,9 @@ public class FMLLoader {
         // TODO commonLaunchHandler.collectAdditionalModFileLocators(versionInfo, additionalLocators::add);
 
         additionalLocators.add(new GameLocator());
+        additionalLocators.add(new InDevLocator());
+        additionalLocators.add(new ModsFolderLocator());
+        additionalLocators.add(new MavenDirectoryLocator());
         additionalLocators.add(new ClasspathLibrariesLocator());
 
         var modDiscoverer = new ModDiscoverer(launchContext, additionalLocators);
@@ -442,12 +464,17 @@ public class FMLLoader {
     }
 
     private static <T> T runOffThread(Supplier<T> supplier) {
+        var cl = Thread.currentThread().getContextClassLoader();
         var future = CompletableFuture.supplyAsync(() -> {
+            var previousCl = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(cl);
             try {
                 return supplier.get();
             } catch (Throwable e) {
                 LOGGER.error("Off-thread operation failed.", e);
                 throw new CompletionException(e);
+            } finally {
+                Thread.currentThread().setContextClassLoader(previousCl);
             }
         });
 
@@ -504,8 +531,8 @@ public class FMLLoader {
         gamePath = FMLPaths.GAMEDIR.get();
         FMLLoader.versionInfo = versionInfo;
 
-        dist = commonLaunchHandler.getDist();
-        production = commonLaunchHandler.isProduction();
+        dist = launchHandler.getDist();
+        production = launchHandler.isProduction();
 
         if (runtimeDistCleaner != null) {
             runtimeDistCleaner.setDistribution(dist);

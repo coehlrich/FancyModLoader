@@ -9,6 +9,14 @@ import com.google.common.collect.Streams;
 import cpw.mods.jarhandling.JarContents;
 import cpw.mods.jarhandling.JarContentsBuilder;
 import cpw.mods.jarhandling.SecureJar;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.stream.Stream;
 import net.neoforged.fml.ModLoadingIssue;
 import net.neoforged.fml.loading.ClasspathLocatorUtils;
 import net.neoforged.fml.loading.FMLLoader;
@@ -26,15 +34,6 @@ import net.neoforged.neoforgespi.locating.ModFileDiscoveryAttributes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.stream.Stream;
-
 public class GameLocator implements IModFileCandidateLocator {
     private static final Logger LOG = LoggerFactory.getLogger(GameLocator.class);
 
@@ -49,7 +48,7 @@ public class GameLocator implements IModFileCandidateLocator {
         // Three possible ways to find the game:
         // 1a) It's exploded on the classpath
         // 1b) It's on the classpath, but as a jar
-        var ourCl = getClass().getClassLoader();
+        var ourCl = Thread.currentThread().getContextClassLoader();
 
         var classesJar = ClasspathResourceUtils.findFileSystemRootOfFileOnClasspath(ourCl, "net/minecraft/client/Minecraft.class");
         var resourceJar = ClasspathResourceUtils.findFileSystemRootOfFileOnClasspath(ourCl, "assets/.mcassetsroot");
@@ -118,8 +117,7 @@ public class GameLocator implements IModFileCandidateLocator {
                 librariesRoot,
                 minecraftJarContent,
                 pipeline,
-                jarCoordinates
-        )) {
+                jarCoordinates)) {
             return;
         }
 
@@ -149,7 +147,7 @@ public class GameLocator implements IModFileCandidateLocator {
     private static MavenCoordinate[] getClientJarCoordinates(VersionInfo versionInfo) {
         // THE ORDER OF THESE ARTIFACTS MATTERS!
         // Classes in 'client' overwrite classes in 'srg'!
-        return new MavenCoordinate[]{
+        return new MavenCoordinate[] {
                 new MavenCoordinate("net.minecraft", "client", "", "srg", versionInfo.mcAndNeoFormVersion()),
                 new MavenCoordinate("net.minecraft", "client", "", "extra", versionInfo.mcAndNeoFormVersion()),
                 // This jar-file contains only the Minecraft classes patched by NeoForge
@@ -160,7 +158,7 @@ public class GameLocator implements IModFileCandidateLocator {
     private static MavenCoordinate[] getServerJarCoordinates(VersionInfo versionInfo) {
         // THE ORDER OF THESE ARTIFACTS MATTERS!
         // Classes in 'client' overwrite classes in 'srg'!
-        return new MavenCoordinate[]{
+        return new MavenCoordinate[] {
                 new MavenCoordinate("net.minecraft", "server", "", "srg", versionInfo.mcAndNeoFormVersion()),
                 new MavenCoordinate("net.minecraft", "server", "", "extra", versionInfo.mcAndNeoFormVersion()),
                 // This jar-file contains only the Minecraft classes patched by NeoForge
@@ -190,8 +188,7 @@ public class GameLocator implements IModFileCandidateLocator {
                 context.addLocated(path);
             }
 
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
     }
 
     private static boolean resolveLibraries(Path libraryDirectory, List<Path> paths, IDiscoveryPipeline pipeline, MavenCoordinate... coordinates) {
@@ -251,7 +248,7 @@ public class GameLocator implements IModFileCandidateLocator {
     }
 
     private static String[] getNeoForgeSpecificPathPrefixes() {
-        return new String[]{"net/neoforged/neoforge/", "META-INF/services/", "META-INF/coremods.json", JarModsDotTomlModFileReader.MODS_TOML};
+        return new String[] { "net/neoforged/neoforge/", "META-INF/services/", "META-INF/coremods.json", JarModsDotTomlModFileReader.MODS_TOML };
     }
 
     @Override

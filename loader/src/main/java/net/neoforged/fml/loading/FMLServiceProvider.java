@@ -5,8 +5,6 @@
 
 package net.neoforged.fml.loading;
 
-import static net.neoforged.fml.loading.LogMarkers.CORE;
-
 import com.mojang.logging.LogUtils;
 import cpw.mods.modlauncher.api.IEnvironment;
 import cpw.mods.modlauncher.api.ILaunchHandlerService;
@@ -14,12 +12,6 @@ import cpw.mods.modlauncher.api.IModuleLayerManager;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.IncompatibleEnvironmentException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.BiFunction;
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionSpecBuilder;
 import net.neoforged.fml.loading.targets.CommonLaunchHandler;
@@ -27,6 +19,15 @@ import net.neoforged.neoforgespi.Environment;
 import net.neoforged.neoforgespi.ILaunchContext;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiFunction;
+
+import static net.neoforged.fml.loading.LogMarkers.CORE;
 
 public class FMLServiceProvider implements ITransformationService {
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -83,7 +84,8 @@ public class FMLServiceProvider implements ITransformationService {
                 moduleLayerManager,
                 modListsArgumentList,
                 modsArgumentList,
-                mavenRootsArgumentList
+                mavenRootsArgumentList,
+                List.of()
         );
         FMLLoader.setupLaunchHandler(versionInfo, commonLaunchHandler);
         FMLEnvironment.setupInteropEnvironment(environment);

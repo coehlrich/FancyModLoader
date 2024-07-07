@@ -66,9 +66,6 @@ public abstract class InstallProductionClientTask extends DefaultTask {
     public abstract RegularFileProperty getObfuscatedClientJar();
 
     @OutputFile
-    public abstract RegularFileProperty getVanillaProgramArgFile();
-
-    @OutputFile
     public abstract RegularFileProperty getVanillaJvmArgFile();
 
     @OutputFile

@@ -6,15 +6,15 @@
 package net.neoforged.neoforgespi;
 
 import cpw.mods.modlauncher.api.IEnvironment;
+import net.neoforged.api.distmarker.Dist;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Stream;
-
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.targets.CommonLaunchHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Provides context for various FML plugins about the current launch operation.
@@ -52,4 +52,9 @@ public interface ILaunchContext {
      * Marks a path as being located and returns true if it was not previously located.
      */
     boolean addLocated(Path path);
+
+    /**
+     * Returns the list of yet {@link #addLocated(Path) unclaimed} class path entries.
+     */
+    List<File> getUnclaimedClassPathEntries();
 }

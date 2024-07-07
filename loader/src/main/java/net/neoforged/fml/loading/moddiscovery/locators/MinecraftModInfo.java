@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.moddiscovery.ModFile;
 import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
 import net.neoforged.fml.loading.moddiscovery.NightConfigWrapper;
@@ -33,7 +35,10 @@ final class MinecraftModInfo {
             }
             minecraftVersion = idPrimitive.getAsString();
         } catch (IOException e) {
-            throw new IllegalArgumentException("Could not find version.json in Minecraft mod jar: " + modFile.getFilePath());
+            minecraftVersion = FMLLoader.versionInfo().mcVersion();
+            if (minecraftVersion == null) {
+                throw new IllegalArgumentException("Could not find version.json in Minecraft mod jar: " + modFile.getFilePath());
+            }
         }
 
         // We haven't changed this in years, and I can't be asked right now to special case this one file in the path.

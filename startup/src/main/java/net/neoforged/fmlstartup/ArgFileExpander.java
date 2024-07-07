@@ -1,11 +1,14 @@
+/*
+ * Copyright (c) NeoForged and contributors
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+
 package net.neoforged.fmlstartup;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.LineNumberReader;
 import java.io.StreamTokenizer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +17,7 @@ import java.util.List;
  * Expands "@"-files in a given command line.
  */
 final class ArgFileExpander {
-    private ArgFileExpander() {
-    }
+    private ArgFileExpander() {}
 
     public static String[] expandArgFiles(String[] args) {
         List<String> newArgs = new ArrayList<>(args.length);

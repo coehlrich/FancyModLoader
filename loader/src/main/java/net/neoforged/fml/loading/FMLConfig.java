@@ -65,6 +65,14 @@ public class FMLConfig {
 
         @SuppressWarnings("unchecked")
         private <T> T getConfigValue(CommentedFileConfig config) {
+            var overrideValue = System.getProperty("fml." + entry);
+            if (overrideValue != null) {
+                if (defaultValue instanceof Boolean) {
+                    return (T) Boolean.valueOf(overrideValue);
+                }
+                return (T) this.entryFunction.apply(overrideValue);
+            }
+
             return (T) this.entryFunction.apply(config != null ? config.get(this.entry) : this.defaultValue);
         }
 

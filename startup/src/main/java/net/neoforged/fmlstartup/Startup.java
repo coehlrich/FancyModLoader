@@ -48,7 +48,6 @@ public class Startup {
         }
     }
 
-
     private static void run(String[] args) throws IOException {
         var gameDir = getGameDir(args);
         StartupLog.info("Game Directory: {}", gameDir);
@@ -63,7 +62,8 @@ public class Startup {
         var files = new ArrayList<DiscoveredFile>(200);
         var directories = new ArrayList<File>();
 
-        searchClassPath(files, directories);
+        var classpathEntries = listClasspathEntries();
+        splitClasspathIntoFilesAndDirectories(classpathEntries, files, directories);
 
         // Discovery content in mod folders
         for (var modFolder : getModFolders(gameDir)) {
@@ -143,6 +143,14 @@ public class Startup {
             System.setProperty("log4j2.disable.jmx", "true");
         }
 
+        // Filter out (but keep the order) any class-path entries we've claimed already
+        var unclaimedClassPathEntries = new ArrayList<File>(classpathEntries.size());
+        for (var classpathEntry : classpathEntries) {
+            if (!claimedFiles.contains(classpathEntry)) {
+                unclaimedClassPathEntries.add(classpathEntry);
+            }
+        }
+
         // Launch FML
         var previousClassLoader = Thread.currentThread().getContextClassLoader();
         try {
@@ -152,7 +160,11 @@ public class Startup {
                     gameDir,
                     launchTarget,
                     args,
-                    claimedFiles);
+                    claimedFiles,
+                    unclaimedClassPathEntries,
+                    false,
+                    ClassLoader.getSystemClassLoader()
+            );
 
             var startupMethod = fmlLoader.getMethod("startup", Instrumentation.class, StartupArgs.class);
             startupMethod.invoke(null, instrumentation, startupArgs);
@@ -222,26 +234,30 @@ public class Startup {
         StartupLog.debug("Added modules to system classloader in {}", elapsedMillis(start));
     }
 
-    private static String getPathDisplayName(File gameDir, File path) {
-        var gameDirPathStr = gameDir.getAbsolutePath();
-        var pathStr = path.getAbsolutePath();
-        if (pathStr.startsWith(gameDirPathStr)) {
-            return pathStr.substring(gameDirPathStr.length());
+    private static List<File> listClasspathEntries() {
+        // Find entries on the classpath
+        var classPathEntries = System.getProperty("java.class.path").split(File.pathSeparator);
+        var result = new ArrayList<File>(classPathEntries.length);
+        for (var classPathEntry : classPathEntries) {
+            var file = new File(classPathEntry);
+            result.add(file);
         }
-        return pathStr;
+
+        return result;
     }
 
-    private static void searchClassPath(List<DiscoveredFile> files, List<File> directories) {
+    private static void splitClasspathIntoFilesAndDirectories(List<File> classpathEntries,
+                                                              List<DiscoveredFile> files,
+                                                              List<File> directories) {
         var start = System.nanoTime();
 
         // Find entries on the classpath
         var discovered = 0;
-        for (var classPathEntry : System.getProperty("java.class.path").split(File.pathSeparator)) {
-            var file = new File(classPathEntry);
-            if (file.isFile()) {
-                files.add(DiscoveredFile.of(file));
+        for (var entry : classpathEntries) {
+            if (entry.isFile()) {
+                files.add(DiscoveredFile.of(entry));
             } else {
-                directories.add(file);
+                directories.add(entry);
             }
             discovered++;
         }
@@ -452,11 +468,8 @@ public class Startup {
     private static List<File> getModFolders(File gameDir) {
         var result = new ArrayList<File>();
 
-        // When the folders are overriden, they must exist, unless prefixed with a dash
-        var overriddenModFolders = System.getProperty("fml.modFolders", "-mods");
-
-        var paths = overriddenModFolders.split(File.pathSeparator);
-        for (String path : paths) {
+        // TODO: Allow specifying this via a sysprop again, although -Dfml.modFolders is very much taken
+        for (String path : List.of("mods")) {
             // Allow specifying folders as: -Dfml.modFolders=-servermods;mods
             // to allow optional entries that do not have to exist.
             boolean optional = false;

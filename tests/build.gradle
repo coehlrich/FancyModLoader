@@ -42,17 +42,10 @@ runConfigurations {
         taskGroup = "fml/test runs"
         mainClass = "net.neoforged.devlaunch.Main"
         dependencies {
-            classpath project(":earlydisplay")
-            classpath project(":loader")
+            classpath project(":startup")
             classpath "net.neoforged:minecraft-dependencies:$test_minecraft_version"
-            // Needed to support arg-files for program arguments
-            classpath "net.neoforged:DevLaunch:1.0.1"
-            modulepath("net.neoforged:neoforge:$test_neoforge_version") {
-                capabilities {
-                    requireCapability("net.neoforged:neoforge-moddev-module-path")
-                }
-            }
         }
+        jvmArgs.add("-javaagent:" + file("devagent.jar").absolutePath)
     }
     productionClient {
         ideName = "Client (Production)"
