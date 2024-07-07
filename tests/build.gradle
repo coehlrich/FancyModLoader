@@ -45,7 +45,7 @@ runConfigurations {
             classpath project(":startup")
             classpath "net.neoforged:minecraft-dependencies:$test_minecraft_version"
         }
-        jvmArgs.add("-javaagent:" + file("../startup/devagent.jar").absolutePath)
+        jvmArguments.add("-javaagent:" + file("../startup/devagent.jar").absolutePath)
     }
     productionClient {
         ideName = "Client (Production)"

@@ -153,7 +153,7 @@ public abstract class LauncherTest {
                 additionalClassPath.stream().map(Path::toFile).toList(),
                 true,
                 Thread.currentThread().getContextClassLoader()
-                );
+        );
 
         var instrumentation = ByteBuddyAgent.install();
         FMLLoader.startup(
