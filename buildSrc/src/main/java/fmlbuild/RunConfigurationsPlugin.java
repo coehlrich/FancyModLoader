@@ -63,7 +63,7 @@ public abstract class RunConfigurationsPlugin implements Plugin<Project> {
                 task.classpath(sourceSet.getRuntimeClasspath());
                 task.getMainClass().set(runConfiguration.getMainClass());
                 var jvmArguments = task.getJvmArguments();
-                jvmArguments.addAll(runConfiguration.getJvmArgs());
+                jvmArguments.addAll(runConfiguration.getJvmArguments());
                 jvmArguments.addAll(runConfiguration.getSystemProperties().map(properties -> {
                     return properties.entrySet().stream().map(entry -> "-D" + entry.getKey() + "=" + entry.getValue()).toList();
                 }));
@@ -91,7 +91,7 @@ public abstract class RunConfigurationsPlugin implements Plugin<Project> {
                 var taskInputs = task.getInputs();
                 // To avoid accidentally tripping Gradle by passing a "File", we convert it to String in the provider
                 taskInputs.property("runWorkingDirectory", runConfiguration.getWorkingDirectory().map(Directory::getAsFile).map(File::getAbsolutePath));
-                taskInputs.property("runProgramArgs", runConfiguration.getProgramArgs());
+                taskInputs.property("runProgramArgs", runConfiguration.getProgramArguments());
                 task.doFirst(RunConfigurationsPlugin::configureJavaExec);
             });
         });
@@ -113,7 +113,7 @@ public abstract class RunConfigurationsPlugin implements Plugin<Project> {
                 var app = new Application(settings.getIdeName().get(), project);
                 app.setModuleRef(new ModuleRef(project, sourceSet)); // TODO: Use MDG utility since idea-ext is just wrong
                 app.setMainClass(settings.getMainClass().get());
-                var effectiveJvmArgs = new ArrayList<>(settings.getJvmArgs().get());
+                var effectiveJvmArgs = new ArrayList<>(settings.getJvmArguments().get());
                 for (var entry : settings.getSystemProperties().get().entrySet()) {
                     effectiveJvmArgs.add("-D" + entry.getKey() + "=" + entry.getValue());
                 }
@@ -128,7 +128,7 @@ public abstract class RunConfigurationsPlugin implements Plugin<Project> {
                         effectiveJvmArgs.stream().map(RunUtils::escapeJvmArg).collect(Collectors.joining(" "))
                 );
                 app.setProgramParameters(
-                        settings.getProgramArgs().get().stream().map(RunUtils::escapeJvmArg).collect(Collectors.joining(" "))
+                        settings.getProgramArguments().get().stream().map(RunUtils::escapeJvmArg).collect(Collectors.joining(" "))
                 );
                 app.setWorkingDirectory(settings.getWorkingDirectory().getAsFile().get().getAbsolutePath());
                 ijRunConfigs.add(app);

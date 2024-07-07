@@ -57,11 +57,11 @@ runConfigurations {
     productionClient {
         ideName = "Client (Production)"
         workingDirectory = neoForgeInstallations.client.directory
-        jvmArgs.add(neoForgeInstallations.client.vanillaJvmArgFile.map { "@" + it })
-        jvmArgs.add(neoForgeInstallations.client.neoForgeJvmArgFile.map { "@" + it })
-        programArgs.add(neoForgeInstallations.client.neoForgeMainClassArgFile.map { "@" + it })
-        programArgs.add(neoForgeInstallations.client.vanillaProgramArgFile.map { "@" + it })
-        programArgs.add(neoForgeInstallations.client.neoForgeProgramArgFile.map { "@" + it })
+        jvmArguments.add(neoForgeInstallations.client.vanillaJvmArgFile.map { "@" + it })
+        jvmArguments.add(neoForgeInstallations.client.neoForgeJvmArgFile.map { "@" + it })
+        programArguments.add(neoForgeInstallations.client.neoForgeMainClassArgFile.map { "@" + it })
+        programArguments.add(neoForgeInstallations.client.vanillaProgramArgFile.map { "@" + it })
+        programArguments.add(neoForgeInstallations.client.neoForgeProgramArgFile.map { "@" + it })
         dependencies {
             classpath files(tasks.named("installNeoForgeClient").map { it.obfuscatedClientJar })
         }
@@ -69,9 +69,9 @@ runConfigurations {
     productionServer {
         ideName = "Server (Production)"
         workingDirectory = neoForgeInstallations.server.directory
-        jvmArgs.add(neoForgeInstallations.server.neoForgeJvmArgFile.map { "@" + it })
-        programArgs.add(neoForgeInstallations.server.neoForgeMainClassArgFile.map { "@" + it })
-        programArgs.add(neoForgeInstallations.server.neoForgeProgramArgFile.map { "@" + it })
+        jvmArguments.add(neoForgeInstallations.server.neoForgeJvmArgFile.map { "@" + it })
+        programArguments.add(neoForgeInstallations.server.neoForgeMainClassArgFile.map { "@" + it })
+        programArguments.add(neoForgeInstallations.server.neoForgeProgramArgFile.map { "@" + it })
     }
 }
 

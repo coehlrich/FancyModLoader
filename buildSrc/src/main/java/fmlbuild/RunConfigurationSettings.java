@@ -49,12 +49,12 @@ public abstract class RunConfigurationSettings implements Named {
     /**
      * The program arguments to launch with.
      */
-    public abstract ListProperty<String> getProgramArgs();
+    public abstract ListProperty<String> getProgramArguments();
 
     /**
      * The JVM arguments to launch with.
      */
-    public abstract ListProperty<String> getJvmArgs();
+    public abstract ListProperty<String> getJvmArguments();
 
     /**
      * Additional system properties to add to the JVM arguments.
