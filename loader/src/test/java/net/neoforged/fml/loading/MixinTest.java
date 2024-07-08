@@ -19,24 +19,24 @@ public class MixinTest extends LauncherTest {
                     mixinConfig.set("config", "mixins.json");
                     config.set("mixins", List.of(mixinConfig));
                 }))
-                .addClass("testmod.mixins", """
-                        import org.spongepowered.asm.mixin.Mixin;
-                        import org.spongepowered.asm.mixin.injection.At;
-                        import org.spongepowered.asm.mixin.injection.Inject;
-                        import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-                        @Mixin(MixinTargetClass.class)
-                        class TestMixin {
-                            @Inject(method="call", at=@At("HEAD"), cancellable = true)
-                            public static void modifyCall(CallbackInfoReturnable<String> cri) {
-                                cri.setReturnValue("mixin did apply!");
-                            }
-                        }
-                        """)
                 .addClass("testmod.MixinTargetClass", """
                         import java.util.concurrent.Callable;
                         public class MixinTargetClass implements Callable<String> {
                             public String call() {
                                 return "mixin did not apply";
+                            }
+                        }
+                        """)
+                .addClass("testmod.mixins.TestMixin", """
+                        import org.spongepowered.asm.mixin.Mixin;
+                        import org.spongepowered.asm.mixin.injection.At;
+                        import org.spongepowered.asm.mixin.injection.Inject;
+                        import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+                        @Mixin(testmod.MixinTargetClass.class)
+                        class TestMixin {
+                            @Inject(method="call", at=@At("HEAD"), cancellable = true)
+                            private static void modifyCall(CallbackInfoReturnable<String> cri) {
+                                cri.setReturnValue("mixin did apply!");
                             }
                         }
                         """)

@@ -39,12 +39,6 @@ public class DeferredMixinConfigRegistration {
     }
 
     static void registerConfigs() {
-        // Register our platform agent first
-        List<String> agentClassNames = GlobalProperties.get(GlobalProperties.Keys.AGENTS);
-        agentClassNames.add(FMLMixinPlatformAgent.class.getName());
-        // Register the container (will use the platform agent)
-        MixinBootstrap.getPlatform().addContainer(new FMLMixinContainerHandle());
-
         added = true;
         mixinConfigs.forEach(cfg -> Mixins.addConfiguration(cfg.fileName()));
         final var configMap = Mixins.getConfigs().stream().collect(

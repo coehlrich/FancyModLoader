@@ -6,6 +6,14 @@
 package net.neoforged.fml.util;
 
 import cpw.mods.niofs.union.UnionFileSystem;
+import net.neoforged.fml.loading.LogMarkers;
+import net.neoforged.jarjar.nio.pathfs.PathFileSystem;
+import net.neoforged.neoforgespi.ILaunchContext;
+import net.neoforged.neoforgespi.locating.IOrderedProvider;
+import org.jetbrains.annotations.ApiStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,37 +24,51 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
-import net.neoforged.fml.loading.LogMarkers;
-import net.neoforged.jarjar.nio.pathfs.PathFileSystem;
-import net.neoforged.neoforgespi.ILaunchContext;
-import net.neoforged.neoforgespi.locating.IOrderedProvider;
-import org.jetbrains.annotations.ApiStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @ApiStatus.Internal
 public final class ServiceLoaderUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(ServiceLoaderUtil.class);
 
-    private ServiceLoaderUtil() {}
+    private ServiceLoaderUtil() {
+    }
 
     public static <T> List<T> loadServices(ILaunchContext context, Class<T> serviceClass) {
         return loadServices(context, serviceClass, List.of());
     }
 
+    public static <T> List<T> loadServices(ILaunchContext context, Class<T> serviceClass, Predicate<Class<? extends T>> filter) {
+        return loadServices(context, serviceClass, List.of(), filter);
+    }
+
+    public static <T> List<T> loadServices(ILaunchContext context, Class<T> serviceClass, Collection<T> additionalServices) {
+        return loadServices(context, serviceClass, additionalServices, ignored -> true);
+    }
+
     /**
      * @param serviceClass If the service class implements {@link IOrderedProvider}, the services will automatically be sorted.
      */
-    public static <T> List<T> loadServices(ILaunchContext context, Class<T> serviceClass, Collection<T> additionalServices) {
-        var serviceLoaderServices = context.loadServices(serviceClass).map(p -> {
-            try {
-                return p.get();
-            } catch (ServiceConfigurationError sce) {
-                LOGGER.error("Failed to load implementation for {}", serviceClass, sce);
-                return null;
-            }
-        }).filter(Objects::nonNull);
+    public static <T> List<T> loadServices(ILaunchContext context,
+                                           Class<T> serviceClass,
+                                           Collection<T> additionalServices,
+                                           Predicate<Class<? extends T>> filter) {
+        var serviceLoaderServices = context.loadServices(serviceClass)
+                .filter(p -> {
+                    if (!filter.test(p.type())) {
+                        LOGGER.debug("Filtering out service provider {} for service class {}", p.type(), serviceClass);
+                        return false;
+                    }
+                    return true;
+                })
+                .map(p -> {
+                    try {
+                        return p.get();
+                    } catch (ServiceConfigurationError sce) {
+                        LOGGER.error("Failed to load implementation for {}", serviceClass, sce);
+                        return null;
+                    }
+                }).filter(Objects::nonNull);
 
         var servicesStream = Stream.concat(additionalServices.stream(), serviceLoaderServices).distinct();
 

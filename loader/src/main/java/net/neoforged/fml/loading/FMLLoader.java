@@ -8,7 +8,6 @@ package net.neoforged.fml.loading;
 import com.mojang.logging.LogUtils;
 import cpw.mods.jarhandling.SecureJar;
 import cpw.mods.modlauncher.ArgumentHandler;
-import cpw.mods.modlauncher.DiscoveryData;
 import cpw.mods.modlauncher.Environment;
 import cpw.mods.modlauncher.LaunchPluginHandler;
 import cpw.mods.modlauncher.LaunchServiceHandler;
@@ -23,6 +22,7 @@ import cpw.mods.modlauncher.api.IModuleLayerManager;
 import cpw.mods.modlauncher.api.ITransformationService;
 import cpw.mods.modlauncher.api.ITransformer;
 import cpw.mods.modlauncher.api.IncompatibleEnvironmentException;
+import cpw.mods.modlauncher.api.NamedPath;
 import cpw.mods.modlauncher.serviceapi.ILaunchPluginService;
 import net.neoforged.accesstransformer.api.AccessTransformerEngine;
 import net.neoforged.accesstransformer.ml.AccessTransformerService;
@@ -34,6 +34,9 @@ import net.neoforged.fml.common.asm.RuntimeDistCleaner;
 import net.neoforged.fml.common.asm.enumextension.RuntimeEnumExtender;
 import net.neoforged.fml.i18n.FMLTranslations;
 import net.neoforged.fml.loading.mixin.DeferredMixinConfigRegistration;
+import net.neoforged.fml.loading.mixin.FMLCommandLineMixinContainer;
+import net.neoforged.fml.loading.mixin.FMLMixinContainerHandle;
+import net.neoforged.fml.loading.mixin.FMLModFileMixinContainer;
 import net.neoforged.fml.loading.moddiscovery.ModDiscoverer;
 import net.neoforged.fml.loading.moddiscovery.ModFile;
 import net.neoforged.fml.loading.moddiscovery.ModValidator;
@@ -64,6 +67,9 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.event.Level;
+import org.spongepowered.asm.launch.MixinBootstrap;
+import org.spongepowered.asm.launch.MixinLaunchPlugin;
+import org.spongepowered.asm.launch.MixinLaunchPluginLegacy;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,6 +77,7 @@ import java.lang.instrument.Instrumentation;
 import java.lang.invoke.MethodHandle;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -135,6 +142,10 @@ public class FMLLoader {
                 s -> Optional.ofNullable(launchPlugins.get(s)),
                 s -> Optional.ofNullable(launchHandlers.get(s)),
                 moduleLayerHandler);
+        environment.computePropertyIfAbsent(IEnvironment.Keys.MLSPEC_VERSION.get(), s -> "11");
+        environment.computePropertyIfAbsent(IEnvironment.Keys.MLIMPL_VERSION.get(), s -> "11");
+        environment.computePropertyIfAbsent(IEnvironment.Keys.MODLIST.get(), s -> new ArrayList<>());
+        environment.computePropertyIfAbsent(IEnvironment.Keys.LAUNCHTARGET.get(), stringKey -> startupArgs.launchTarget());
 
         var programArgs = startupArgs.programArgs();
         var externalOptions = parseArgs(programArgs);
@@ -180,9 +191,9 @@ public class FMLLoader {
 
         // Add our own launch plugins explicitly. These do need to exist before mod discovery,
         // as mod discovery will add its results to these engines directly.
-        accessTransformer = addLaunchPlugin(launchPlugins, new AccessTransformerService()).engine;
-        addLaunchPlugin(launchPlugins, new RuntimeEnumExtender());
-        runtimeDistCleaner = addLaunchPlugin(launchPlugins, new RuntimeDistCleaner(dist));
+        accessTransformer = addLaunchPlugin(launchContext, launchPlugins, new AccessTransformerService()).engine;
+        addLaunchPlugin(launchContext, launchPlugins, new RuntimeEnumExtender());
+        runtimeDistCleaner = addLaunchPlugin(launchContext, launchPlugins, new RuntimeDistCleaner(dist));
 
         discoveryResult = runOffThread(() -> runDiscovery(launchContext));
 
@@ -192,22 +203,24 @@ public class FMLLoader {
                     .log("{}", FMLTranslations.translateIssueEnglish(issue));
         }
 
-        // TODO: There is no reason to defer this since we have much more control over startup now
-        // Add extra mixin configs
-        var extraMixinConfigs = System.getProperty("fml.extraMixinConfigs");
-        if (extraMixinConfigs != null) {
-            for (String s : extraMixinConfigs.split(File.pathSeparator)) {
-                DeferredMixinConfigRegistration.addMixinConfig(s);
-            }
-        }
-
         // ML would usually handle these two arguments
         var launchService = new LaunchServiceHandler(Stream.empty());
 
-        var transformStore = new TransformStore();
-        var transformationServicesHandler = new TransformationServicesHandler(transformStore, moduleLayerHandler);
-        var argumentHandler = new ArgumentHandler(programArgs);
+        // Discover third party launch plugins
+        for (var launchPlugin : ServiceLoaderUtil.loadServices(
+                launchContext,
+                ILaunchPluginService.class,
+                List.of(new MixinLaunchPlugin()),
+                FMLLoader::isValidLaunchPlugin)) {
+            addLaunchPlugin(launchContext, launchPlugins, launchPlugin);
+        }
 
+        // Discover third party transformation services
+        var transformationServices = ServiceLoaderUtil.loadServices(launchContext, ITransformationService.class);
+
+        var transformStore = new TransformStore();
+        var transformationServicesHandler = new TransformationServicesHandler(transformStore, moduleLayerHandler, environment, transformationServices);
+        var argumentHandler = new ArgumentHandler(programArgs);
         var launchPluginHandler = new LaunchPluginHandler(launchPlugins.values().stream());
 
         Launcher.INSTANCE = new Launcher(
@@ -218,19 +231,36 @@ public class FMLLoader {
                 launchPluginHandler,
                 moduleLayerHandler);
 
-        transformationServicesHandler.discoverServices(new DiscoveryData(
-                startupArgs.gameDirectory().toPath(), startupArgs.launchTarget(), programArgs));
+        // Add extra mixin configs from command line
+        var extraMixinConfigs = System.getProperty("fml.extraMixinConfigs");
+        if (extraMixinConfigs != null) {
+            var extraMixinConfigList = Arrays.asList(extraMixinConfigs.split(File.pathSeparator));
+            MixinBootstrap.getPlatform().addContainer(new FMLCommandLineMixinContainer(extraMixinConfigList));
+        }
 
-        // ITransformationService.class.getName(),
+        for (var modFile : discoveryResult.gameContent()) {
+            var modMixins = modFile.getMixinConfigs();
+            if (!modMixins.isEmpty()) {
+                MixinBootstrap.getPlatform().addContainer(new FMLModFileMixinContainer(modFile));
+            }
+        }
+
         // IModFileCandidateLocator.class.getName(),
         // IModFileReader.class.getName(),
         // IDependencyLocator.class.getName(),
         // TODO -> MANIFEST.MF declaration GraphicsBootstrapper.class.getName(),
         // TODO -> MANIFEST.MF declaration net.neoforged.neoforgespi.earlywindow.ImmediateWindowProvider.class.getName()
 
+        // BUILD SERVICES LAYER
+        moduleLayerHandler.buildLayer(IModuleLayerManager.Layer.SERVICE);
+
         // BUILD PLUGIN LAYER
         var scanResults = transformationServicesHandler.initializeTransformationServices(argumentHandler, environment)
                 .stream().collect(Collectors.groupingBy(ITransformationService.Resource::target));
+
+        // Register the container (will use the platform agent)
+        MixinBootstrap.getPlatform().addContainer(new FMLMixinContainerHandle());
+
         scanResults.getOrDefault(IModuleLayerManager.Layer.PLUGIN, List.of())
                 .stream()
                 .flatMap(resource -> resource.resources().stream())
@@ -268,18 +298,31 @@ public class FMLLoader {
 
         processAddOpensDeclarations(instrumentation, gameLayer);
 
+        // From here on out, try loading through the TCL
+        Thread.currentThread().setContextClassLoader(gameClassLoader);
+
+        // This will initialize Mixins, for example
+        launchPluginHandler.announceLaunch(gameClassLoader, new NamedPath[0]);
+
         var gameRunner = commonLaunchHandler.launchService(programArgs, gameLayer);
         if (startupArgs.skipEntryPoint()) {
             return;
         }
 
-        // From here on out, try loading through the TCL
-        Thread.currentThread().setContextClassLoader(gameClassLoader);
         try {
             gameRunner.run();
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static <T extends ILaunchPluginService> boolean isValidLaunchPlugin(Class<T> serviceClass) {
+        // Blacklist the pre Mixin Modlauncher 9 plugin which gets picked up if mixin wasn't loaded as a module
+        // Since we're adding the Mixin service manually, we'll blacklist all auto-detected ones here.
+        if (serviceClass == MixinLaunchPluginLegacy.class || serviceClass == MixinLaunchPlugin.class) {
+            return false;
+        }
+        return true;
     }
 
     private static CommonLaunchHandler getLaunchHandler(String name) {
@@ -362,10 +405,18 @@ public class FMLLoader {
     record AddOpensDeclaration(String module, String packageName, String target) {
     }
 
-    private static <T extends ILaunchPluginService> T addLaunchPlugin(Map<String, ILaunchPluginService> services,
+    private static <T extends ILaunchPluginService> T addLaunchPlugin(ILaunchContext launchContext,
+                                                                      Map<String, ILaunchPluginService> services,
                                                                       T service) {
-        LOGGER.debug("Adding built-in launch plugin {}", service.name());
-        services.put(service.name(), service);
+        LOGGER.debug("Adding launch plugin {}", service.name());
+        var previous = services.put(service.name(), service);
+        if (previous != null) {
+            var source1 = ServiceLoaderUtil.identifySourcePath(launchContext, service);
+            var source2 = ServiceLoaderUtil.identifySourcePath(launchContext, previous);
+
+            throw new FatalStartupException("Multiple launch plugin services of the same name '"
+                                            + previous.name() + "' are present: " + source1 + " and " + source2);
+        }
         return service;
     }
 
